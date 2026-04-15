@@ -16,6 +16,12 @@ const App = () => {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const expoToken = params.get('expo_token');
+    if (expoToken) {
+       window.EXPO_PUSH_TOKEN = expoToken;
+    }
+
     const savedSession = localStorage.getItem('pairmate_session');
     if (savedSession) {
       const { pair_id, user_id, user_name } = JSON.parse(savedSession);
@@ -136,12 +142,18 @@ const App = () => {
     let fcmToken = null;
 
     if (mode === 'BROWSER' && 'Notification' in window) {
-       const permission = await Notification.requestPermission();
+       const permission = window.EXPO_PUSH_TOKEN ? 'granted' : await Notification.requestPermission();
        if (permission === 'granted') {
           try {
-             fcmToken = await getToken(messaging, { vapidKey: "BIWqAKnUvsGYv9GOWZIn2GShpBV8mhzSWF-NAo8OzrLLmI3hu875KENOynHmsDiMvSP0b-0K_cVQD_PCaBKsPXY" });
-             pushActiveRef.current = true;
-             new Notification('PairMate', { body: "Background push notifications successfully enabled!" });
+             if (window.EXPO_PUSH_TOKEN) {
+                 fcmToken = window.EXPO_PUSH_TOKEN;
+                 pushActiveRef.current = true;
+                 alert("Native Push Notifications activated!");
+             } else {
+                 fcmToken = await getToken(messaging, { vapidKey: "BIWqAKnUvsGYv9GOWZIn2GShpBV8mhzSWF-NAo8OzrLLmI3hu875KENOynHmsDiMvSP0b-0K_cVQD_PCaBKsPXY" });
+                 pushActiveRef.current = true;
+                 new Notification('PairMate', { body: "Background push notifications successfully enabled!" });
+             }
           } catch (e) {
              console.error("FCM Token fetch failed", e);
              pushActiveRef.current = false;
@@ -150,6 +162,14 @@ const App = () => {
        } else {
           alert("Notification permission denied! Please allow them in your browser Settings.");
           finalMode = 'SILENT';
+       }
+    } else if (mode === 'BROWSER' && window.EXPO_PUSH_TOKEN) {
+       try {
+           fcmToken = window.EXPO_PUSH_TOKEN;
+           pushActiveRef.current = true;
+           alert("Native Push Notifications activated!");
+       } catch (e) {
+           pushActiveRef.current = false;
        }
     }
     

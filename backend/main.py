@@ -7,6 +7,35 @@ import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore, messaging
 from typing import Optional
+import requests
+
+def send_push_notification(token: str, title: str, body: str):
+    if token.startswith("ExponentPushToken"):
+        try:
+            res = requests.post(
+                "https://exp.host/--/api/v2/push/send",
+                json={
+                    "to": token,
+                    "title": title,
+                    "body": body,
+                    "sound": "default"
+                }
+            )
+            print("Expo Push Response:", res.json())
+        except Exception as e:
+            print("Expo Send failed:", e)
+    else:
+        msg = messaging.Message(
+            notification=messaging.Notification(
+                title=title,
+                body=body
+            ),
+            token=token,
+        )
+        try:
+            messaging.send(msg)
+        except Exception as e:
+            print("FCM Send failed:", e)
 
 # Try to initialize Firebase
 try:
@@ -110,17 +139,7 @@ def update_status(pair_id: str, req: UpdateStatusRequest):
             partner_fcm = pair_data.get("user2_fcm_token")
             partner_mode = pair_data.get("user2_notify_mode")
             if partner_mode != "SILENT" and partner_fcm:
-                msg = messaging.Message(
-                    notification=messaging.Notification(
-                        title="PairMate",
-                        body=f"❤️ Your partner is now FREE!"
-                    ),
-                    token=partner_fcm,
-                )
-                try:
-                    messaging.send(msg)
-                except Exception as e:
-                    print("FCM Send failed:", e)
+                send_push_notification(partner_fcm, "PairMate", "❤️ Your partner is now FREE!")
 
     elif req.user_id == 2:
         prev_status = pair_data.get("user2_status")
@@ -130,17 +149,7 @@ def update_status(pair_id: str, req: UpdateStatusRequest):
             partner_fcm = pair_data.get("user1_fcm_token")
             partner_mode = pair_data.get("user1_notify_mode")
             if partner_mode != "SILENT" and partner_fcm:
-                msg = messaging.Message(
-                    notification=messaging.Notification(
-                        title="PairMate",
-                        body=f"❤️ Your partner is now FREE!"
-                    ),
-                    token=partner_fcm,
-                )
-                try:
-                    messaging.send(msg)
-                except Exception as e:
-                    print("FCM Send failed:", e)
+                send_push_notification(partner_fcm, "PairMate", "❤️ Your partner is now FREE!")
     else:
         raise HTTPException(status_code=400, detail="Invalid user_id")
         
