@@ -30,11 +30,32 @@ const App = () => {
   }, []);
 
   const prevPartnerStatusRef = useRef(null);
+  const pushActiveRef = useRef(false);
 
   const handleStatusChange = (newData, currentUserId) => {
     if (!currentUserId) return;
     const partnerId = currentUserId === 1 ? 2 : 1;
-    prevPartnerStatusRef.current = newData[`user${partnerId}_status`];
+    const newPartnerStatus = newData[`user${partnerId}_status`];
+    
+    if (prevPartnerStatusRef.current === 'BUSY' && newPartnerStatus === 'FREE') {
+      const myNotifyMode = newData[`user${currentUserId}_notify_mode`];
+      if (myNotifyMode === 'BROWSER') {
+        const pName = newData[`user${partnerId}_name`] || 'Partner';
+        const message = `Hey! ${pName} is now FREE! ✨`;
+        
+        let blink = false;
+        const blinker = setInterval(() => { document.title = blink ? message : "PairMate"; blink = !blink; }, 1000);
+        setTimeout(() => clearInterval(blinker), 12000);
+
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(()=>{});
+
+        if (!pushActiveRef.current) {
+           setTimeout(() => alert(message), 500);
+        }
+      }
+    }
+    prevPartnerStatusRef.current = newPartnerStatus;
   }
 
   useEffect(() => {
@@ -119,10 +140,12 @@ const App = () => {
        if (permission === 'granted') {
           try {
              fcmToken = await getToken(messaging, { vapidKey: "BIWqAKnUvsGYv9GOWZIn2GShpBV8mhzSWF-NAo8OzrLLmI3hu875KENOynHmsDiMvSP0b-0K_cVQD_PCaBKsPXY" });
+             pushActiveRef.current = true;
              new Notification('PairMate', { body: "Background push notifications successfully enabled!" });
           } catch (e) {
              console.error("FCM Token fetch failed", e);
-             alert("Could not enable background push. Missing or invalid VAPID Key in codebase.");
+             pushActiveRef.current = false;
+             alert("Background push blocked by your browser! We will use an in-browser alarm instead. Please keep this tab open!");
           }
        } else {
           alert("Notification permission denied! Please allow them in your browser Settings.");
