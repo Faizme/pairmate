@@ -4,7 +4,7 @@ import { db, messaging } from './firebase';
 import { getToken, onMessage } from 'firebase/messaging';
 import { Heart, LogOut, Copy, Check, Bell } from 'lucide-react';
 
-const API_BASE = 'http://localhost:8000/api';
+const API_BASE = 'https://pairmate-backend.onrender.com/api';
 
 const App = () => {
   const [view, setView] = useState('home'); 
