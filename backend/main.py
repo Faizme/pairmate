@@ -18,7 +18,10 @@ def send_push_notification(token: str, title: str, body: str):
                     "to": token,
                     "title": title,
                     "body": body,
-                    "sound": "default"
+                    "sound": "default",
+                    "priority": "high",
+                    "channelId": "default",
+                    "badge": 1
                 }
             )
             print("Expo Push Response:", res.json())
