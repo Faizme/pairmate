@@ -90,7 +90,7 @@ def create_pair(req: CreatePairRequest):
     pair_id = generate_pair_id()
     data = {
         "user1_name": req.user_name,
-        "user1_status": "FREE",
+        "user1_status": "BUSY",
         "user1_notify_mode": "SILENT",
         "user1_fcm_token": None,
         "user2_name": None,
@@ -122,7 +122,7 @@ def join_pair(pair_id: str, req: JoinPairRequest):
         
     doc_ref.update({
         "user2_name": req.user_name,
-        "user2_status": "FREE",
+        "user2_status": "BUSY",
         "user2_notify_mode": "SILENT",
         "user2_fcm_token": None
     })

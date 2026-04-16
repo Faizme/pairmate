@@ -83,7 +83,7 @@ const App = () => {
 
     const partnerId = userId === 1 ? 2 : 1;
     const myName = pairData[`user${userId}_name`] || userName;
-    const myStatus = pairData[`user${userId}_status`] || 'FREE';
+    const myStatus = pairData[`user${userId}_status`] || 'BUSY';
     const myNotifyMode = pairData[`user${userId}_notify_mode`];
     const partnerName = pairData[`user${partnerId}_name`];
     const partnerStatus = pairData[`user${partnerId}_status`];
