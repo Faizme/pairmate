@@ -1,189 +1,25 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
-import { db, messaging } from './firebase';
-import { getToken, onMessage } from 'firebase/messaging';
-import { Heart, LogOut, Copy, Check, Bell } from 'lucide-react';
-
-const API_BASE = 'https://pairmate-backend.onrender.com/api';
+import React from 'react';
+import { Heart, LogOut, Copy, Check } from 'lucide-react';
+import { usePairMate } from './hooks/usePairMate';
+import { StatusCard } from './components/StatusCard';
+import { PartnerCard } from './components/PartnerCard';
 
 const App = () => {
-  const [view, setView] = useState('home'); 
-  const [userName, setUserName] = useState('');
-  const [pairId, setPairId] = useState('');
-  const [userId, setUserId] = useState(null); 
-  const [pairData, setPairData] = useState(null);
-  const [error, setError] = useState('');
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const expoToken = params.get('expo_token');
-    if (expoToken) {
-       window.EXPO_PUSH_TOKEN = expoToken;
-    }
-
-    const savedSession = localStorage.getItem('pairmate_session');
-    if (savedSession) {
-      const { pair_id, user_id, user_name } = JSON.parse(savedSession);
-      setPairId(pair_id); setUserId(user_id); setUserName(user_name); setView('session');
-    }
-
-    if (messaging) {
-      onMessage(messaging, (payload) => {
-        new Notification(payload.notification.title, { body: payload.notification.body });
-      });
-    }
-  }, []);
-
-  const prevPartnerStatusRef = useRef(null);
-  const pushActiveRef = useRef(false);
-
-  const handleStatusChange = (newData, currentUserId) => {
-    if (!currentUserId) return;
-    const partnerId = currentUserId === 1 ? 2 : 1;
-    const newPartnerStatus = newData[`user${partnerId}_status`];
-    
-    if (prevPartnerStatusRef.current === 'BUSY' && newPartnerStatus === 'FREE') {
-      const myNotifyMode = newData[`user${currentUserId}_notify_mode`];
-      if (myNotifyMode === 'BROWSER') {
-        const pName = newData[`user${partnerId}_name`] || 'Partner';
-        const message = `Hey! ${pName} is now FREE! ✨`;
-        
-        let blink = false;
-        const blinker = setInterval(() => { document.title = blink ? message : "PairMate"; blink = !blink; }, 1000);
-        setTimeout(() => clearInterval(blinker), 12000);
-
-        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-        audio.play().catch(()=>{});
-
-        if (!pushActiveRef.current) {
-           setTimeout(() => alert(message), 500);
-        }
-      }
-    }
-    prevPartnerStatusRef.current = newPartnerStatus;
-  }
-
-  useEffect(() => {
-    if (view === 'session' && pairId && userId) {
-      const unsub = onSnapshot(doc(db, "pairs", pairId), (docSnap) => {
-        if (docSnap.exists()) {
-          const newData = docSnap.data();
-          handleStatusChange(newData, userId);
-          setPairData(newData);
-        }
-      });
-      return () => unsub();
-    }
-  }, [view, pairId, userId]);
-
-  useEffect(() => {
-    if (view === 'session' && pairId && userId && !pairData) {
-      const interval = setInterval(async () => {
-         try {
-           const res = await fetch(`${API_BASE}/pairs/${pairId}`);
-           if (res.ok) {
-             const newData = await res.json();
-             handleStatusChange(newData, userId);
-             setPairData(newData);
-           }
-         } catch(e) {}
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [view, pairId, userId, pairData]);
-
-  const handleCreate = async () => {
-    if(!userName) { setError('Name is required'); return; }
-    setError('');
-    try {
-      const res = await fetch(`${API_BASE}/pairs`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_name: userName})
-      });
-      const data = await res.json();
-      setPairId(data.pair_id); setUserId(data.user_id);
-      saveSession(data.pair_id, data.user_id, userName);
-      setView('session');
-    } catch(err) { setError("Failed to create pair."); }
-  };
-
-  const handleJoin = async () => {
-     if(!userName || !pairId) { setError('Name and Pair ID are required'); return; }
-     setError('');
-     try {
-       const res = await fetch(`${API_BASE}/pairs/${pairId}/join`, {
-        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_name: userName})
-      });
-      if (!res.ok) { setError("Invalid or full pair"); return; }
-      const data = await res.json();
-      setUserId(data.user_id);
-      saveSession(pairId, data.user_id, userName);
-      setView('session');
-     } catch (err) { setError("Failed to join pair."); }
-  };
-
-  const saveSession = (pId, uId, uName) => { localStorage.setItem('pairmate_session', JSON.stringify({pair_id: pId, user_id: uId, user_name: uName})); }
-
-  const handleLeave = () => {
-    localStorage.removeItem('pairmate_session');
-    setPairId(''); setUserId(null); setUserName(''); setPairData(null); setView('home');
-    document.title = "PairMate";
-  };
-
-  const updateStatus = async (status) => {
-    setPairData(prev => ({...prev, [`user${userId}_status`]: status}));
-    await fetch(`${API_BASE}/pairs/${pairId}/status`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: userId, status})
-    });
-  };
-
-  const updateNotifyMode = async (mode) => {
-    let finalMode = mode;
-    let fcmToken = null;
-
-    if (mode === 'BROWSER' && 'Notification' in window) {
-       const permission = window.EXPO_PUSH_TOKEN ? 'granted' : await Notification.requestPermission();
-       if (permission === 'granted') {
-          try {
-             if (window.EXPO_PUSH_TOKEN) {
-                 fcmToken = window.EXPO_PUSH_TOKEN;
-                 pushActiveRef.current = true;
-                 alert("Native Push Notifications activated!");
-             } else {
-                 fcmToken = await getToken(messaging, { vapidKey: "BIWqAKnUvsGYv9GOWZIn2GShpBV8mhzSWF-NAo8OzrLLmI3hu875KENOynHmsDiMvSP0b-0K_cVQD_PCaBKsPXY" });
-                 pushActiveRef.current = true;
-                 new Notification('PairMate', { body: "Background push notifications successfully enabled!" });
-             }
-          } catch (e) {
-             console.error("FCM Token fetch failed", e);
-             pushActiveRef.current = false;
-             alert("Background push blocked by your browser! We will use an in-browser alarm instead. Please keep this tab open!");
-          }
-       } else {
-          alert("Notification permission denied! Please allow them in your browser Settings.");
-          finalMode = 'SILENT';
-       }
-    } else if (mode === 'BROWSER' && window.EXPO_PUSH_TOKEN) {
-       try {
-           fcmToken = window.EXPO_PUSH_TOKEN;
-           pushActiveRef.current = true;
-           alert("Native Push Notifications activated!");
-       } catch (e) {
-           pushActiveRef.current = false;
-       }
-    }
-    
-    setPairData(prev => ({...prev, [`user${userId}_notify_mode`]: finalMode}));
-    await fetch(`${API_BASE}/pairs/${pairId}/notify`, {
-        method: 'PUT', headers: {'Content-Type': 'application/json'}, 
-        body: JSON.stringify({user_id: userId, mode: finalMode, fcm_token: fcmToken})
-    });
-  };
-
-  const copyPairId = () => {
-    navigator.clipboard.writeText(pairId);
-    setCopied(true); setTimeout(() => setCopied(false), 2000);
-  };
+  const {
+    view, setView,
+    userName, setUserName,
+    pairId, setPairId,
+    userId,
+    pairData,
+    error,
+    copied,
+    handleCreate,
+    handleJoin,
+    handleLeave,
+    updateStatus,
+    updateNotifyMode,
+    copyPairId
+  } = usePairMate();
 
   const renderHome = () => (
     <div className="flex flex-col items-center justify-center min-h-screen bg-[#030303] text-white p-6 font-sans overflow-hidden">
@@ -288,75 +124,23 @@ const App = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 flex-1 mt-4">
-            {/* My Status Card */}
-            <div className="bg-white/[0.02] backdrop-blur-3xl rounded-[3rem] p-8 border border-white/[0.05] flex flex-col items-center relative shadow-[inset_0_2px_20px_rgba(255,255,255,0.02)]">
-               <h3 className="text-[10px] font-bold text-white/30 tracking-[0.4em] uppercase mb-10 w-full text-center">Your Status</h3>
-               <h2 className="text-2xl font-light tracking-wide text-white mb-10">{myName}</h2>
-               
-               {/* 3D Neomorphic Toggle Switch container for Status */}
-               <div className="bg-black/60 rounded-[2rem] p-2 flex w-full relative shadow-[inset_0_5px_20px_rgba(0,0,0,0.8)] border border-white/5 mb-10">
-                 {/* Sliding Background */}
-                 <div className={`absolute top-2 bottom-2 w-[calc(50%-8px)] rounded-[1.5rem] transition-all duration-500 ease-out ${myStatus === 'FREE' ? `left-2 ${accentColor} ${shadowAccent}` : 'left-[calc(50%+4px)] bg-neutral-800 shadow-lg'}`}></div>
-                 
-                 <button onClick={() => updateStatus('FREE')} className={`relative z-10 flex-1 py-5 text-xs tracking-widest font-bold transition-all duration-300 rounded-[1.5rem] ${myStatus === 'FREE' ? 'text-white' : 'text-white/40 hover:text-white/70'}`}>
-                   FREE
-                 </button>
-                 <button onClick={() => updateStatus('BUSY')} className={`relative z-10 flex-1 py-5 text-xs tracking-widest font-bold transition-all duration-300 rounded-[1.5rem] ${myStatus === 'BUSY' ? 'text-white' : 'text-white/40 hover:text-white/70'}`}>
-                   BUSY
-                 </button>
-               </div>
-
-               {/* Notifications */}
-               <div className="w-full mt-auto pt-8 border-t border-white/5">
-                  <label className="flex items-center justify-between cursor-pointer group">
-                     <div>
-                       <div className={`text-xs font-bold tracking-widest uppercase transition-colors ${myNotifyMode !== 'SILENT' ? textAccent : 'text-white/40'}`}>
-                         Notifications
-                       </div>
-                       <div className="text-[10px] text-white/30 mt-1 uppercase tracking-wider">Ping me when they are free</div>
-                     </div>
-                     <div className={`w-14 items-center flex rounded-full p-1 transition-all duration-500 ${myNotifyMode !== 'SILENT' ? accentColor : 'bg-white/10'}`}>
-                        <div className={`w-6 h-6 rounded-full bg-white shadow-lg transform transition-all duration-500 ${myNotifyMode !== 'SILENT' ? 'translate-x-6' : 'translate-x-0'}`}></div>
-                     </div>
-                     <input type="checkbox" className="hidden" checked={myNotifyMode !== 'SILENT'} onChange={(e) => updateNotifyMode(e.target.checked ? 'BROWSER' : 'SILENT')} />
-                  </label>
-               </div>
-            </div>
-
-            {/* Partner's Status Card */}
-            <div className="bg-white/[0.01] backdrop-blur-3xl rounded-[3rem] p-8 border border-white/[0.03] flex flex-col items-center relative shadow-[inset_0_2px_20px_rgba(255,255,255,0.01)] h-full justify-between">
-               <h3 className="text-[10px] font-bold text-white/30 tracking-[0.4em] uppercase w-full text-center">Partner's Status</h3>
-               
-               {partnerName ? (
-                 <>
-                   <h2 className="text-2xl font-light tracking-wide text-white mt-6">{partnerName}</h2>
-                   
-                   <div className="flex-1 flex flex-col items-center justify-center w-full">
-                     {/* Ambient representation of partner */}
-                     <div className={`relative flex items-center justify-center w-48 h-48 rounded-full transition-all duration-[1500ms] ${partnerStatus === 'FREE' ? `scale-110 shadow-[0_0_80px_rgba(${glowRGB},0.3)]` : 'scale-95 grayscale opacity-30 shadow-none'}`}>
-                        <div className={`absolute inset-0 rounded-full border border-white/10 ${partnerStatus === 'FREE' ? 'animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite]' : ''}`}></div>
-                        <div className={`absolute inset-2 space-y-2 rounded-full border border-white/5 ${partnerStatus === 'FREE' ? 'animate-[ping_4s_cubic-bezier(0,0,0.2,1)_infinite]' : ''}`}></div>
-                        
-                        <div className={`w-24 h-24 rounded-full flex items-center justify-center ${partnerStatus === 'FREE' ? accentColor : 'bg-neutral-800'}`}>
-                          <Heart size={40} className={`text-white transition-all duration-500 ${partnerStatus === 'FREE' ? 'animate-pulse fill-white' : 'opacity-40'}`} strokeWidth={partnerStatus === 'FREE' ? 0 : 2} />
-                        </div>
-                     </div>
-                     
-                     <p className={`mt-12 text-sm font-bold tracking-[0.3em] uppercase transition-colors duration-1000 ${partnerStatus === 'FREE' ? textAccent : 'text-white/30'}`}>
-                       {partnerStatus === 'FREE' ? 'IS FREE' : 'IS BUSY'}
-                     </p>
-                   </div>
-                 </>
-               ) : (
-                 <div className="flex-1 flex flex-col items-center justify-center text-white/20">
-                   <div className="w-24 h-24 rounded-full border border-dashed border-white/20 flex items-center justify-center mb-6">
-                     <Heart size={30} className="opacity-50" />
-                   </div>
-                   <p className="text-[10px] uppercase tracking-[0.4em] font-bold">Waiting for Partner...</p>
-                 </div>
-               )}
-            </div>
-
+             <StatusCard
+               myName={myName}
+               myStatus={myStatus}
+               myNotifyMode={myNotifyMode}
+               updateStatus={updateStatus}
+               updateNotifyMode={updateNotifyMode}
+               accentColor={accentColor}
+               shadowAccent={shadowAccent}
+               textAccent={textAccent}
+             />
+             <PartnerCard
+               partnerName={partnerName}
+               partnerStatus={partnerStatus}
+               glowRGB={glowRGB}
+               accentColor={accentColor}
+               textAccent={textAccent}
+             />
           </div>
         </div>
       </div>
