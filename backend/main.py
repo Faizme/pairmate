@@ -93,10 +93,12 @@ def create_pair(req: CreatePairRequest):
         "user1_status": "BUSY",
         "user1_notify_mode": "SILENT",
         "user1_fcm_token": None,
+        "user1_last_active": firestore.SERVER_TIMESTAMP,
         "user2_name": None,
         "user2_status": None,
         "user2_notify_mode": None,
         "user2_fcm_token": None,
+        "user2_last_active": None,
     }
     if db:
         # We append a timestamp using firestore constant
@@ -124,7 +126,8 @@ def join_pair(pair_id: str, req: JoinPairRequest):
         "user2_name": req.user_name,
         "user2_status": "BUSY",
         "user2_notify_mode": "SILENT",
-        "user2_fcm_token": None
+        "user2_fcm_token": None,
+        "user2_last_active": firestore.SERVER_TIMESTAMP
     })
     
     return {"pair_id": pair_id, "user_id": 2}
@@ -144,7 +147,10 @@ def update_status(pair_id: str, req: UpdateStatusRequest):
     
     if req.user_id == 1:
         prev_status = pair_data.get("user1_status")
-        doc_ref.update({"user1_status": req.status})
+        doc_ref.update({
+            "user1_status": req.status,
+            "user1_last_active": firestore.SERVER_TIMESTAMP
+        })
         
         if req.status == "FREE" and prev_status != "FREE":
             partner_fcm = pair_data.get("user2_fcm_token")
@@ -154,7 +160,10 @@ def update_status(pair_id: str, req: UpdateStatusRequest):
 
     elif req.user_id == 2:
         prev_status = pair_data.get("user2_status")
-        doc_ref.update({"user2_status": req.status})
+        doc_ref.update({
+            "user2_status": req.status,
+            "user2_last_active": firestore.SERVER_TIMESTAMP
+        })
         
         if req.status == "FREE" and prev_status != "FREE":
             partner_fcm = pair_data.get("user1_fcm_token")
@@ -164,6 +173,23 @@ def update_status(pair_id: str, req: UpdateStatusRequest):
     else:
         raise HTTPException(status_code=400, detail="Invalid user_id")
         
+    return {"success": True}
+
+class PingPresenceRequest(BaseModel):
+    user_id: int
+
+@app.put("/api/pairs/{pair_id}/ping")
+def ping_presence(pair_id: str, req: PingPresenceRequest):
+    if not db:
+        return {"success": True}
+        
+    doc_ref = db.collection("pairs").document(pair_id)
+    doc = doc_ref.get()
+    if not doc.exists:
+        raise HTTPException(status_code=404, detail="Pair not found")
+        
+    key = f"user{req.user_id}_last_active"
+    doc_ref.update({key: firestore.SERVER_TIMESTAMP})
     return {"success": True}
 
 @app.put("/api/pairs/{pair_id}/notify")

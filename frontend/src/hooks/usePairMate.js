@@ -67,6 +67,10 @@ export function usePairMate() {
 
   useEffect(() => {
     if (view === 'session' && pairId && userId) {
+      fetch(`${API_BASE}/pairs/${pairId}/ping`, {
+          method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: userId})
+      }).catch(e => {});
+
       const unsub = onSnapshot(doc(db, "pairs", pairId), (docSnap) => {
         if (docSnap.exists()) {
           const newData = docSnap.data();

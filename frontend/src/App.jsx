@@ -153,6 +153,7 @@ const App = () => {
              <PartnerCard
                partnerName={partnerName}
                partnerStatus={partnerStatus}
+               partnerLastActive={pairData[`user${partnerId}_last_active`]}
                glowRGB={glowRGB}
                accentColor={accentColor}
                textAccent={textAccent}
