@@ -55,7 +55,9 @@ export function usePairMate() {
         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         audio.play().catch(()=>{});
 
-        if ('Notification' in window && Notification.permission === 'granted') {
+        if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'NOTIFICATION', title: 'PairMate', body: message }));
+        } else if ('Notification' in window && Notification.permission === 'granted') {
              new Notification('PairMate', { body: message });
         } else if (!pushActiveRef.current) {
              setTimeout(() => alert(message), 500);
@@ -209,7 +211,9 @@ export function usePairMate() {
         perfectMomentTimeoutRef.current = setTimeout(() => {
             setPerfectMoment(true);
             
-            if ('Notification' in window && Notification.permission === 'granted') {
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'NOTIFICATION', title: 'PairMate', body: 'Perfect time to connect ❤️' }));
+            } else if ('Notification' in window && Notification.permission === 'granted') {
                  new Notification('PairMate', { body: 'Perfect time to connect ❤️' });
             }
 
