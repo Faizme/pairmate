@@ -33,10 +33,18 @@ def send_push_notification(token: str, title: str, body: str):
                 title=title,
                 body=body
             ),
+            android=messaging.AndroidConfig(
+                priority='high',
+                notification=messaging.AndroidNotification(
+                    channel_id='default',
+                    sound='default'
+                )
+            ),
             token=token,
         )
         try:
             messaging.send(msg)
+            print("FCM Direct Send Success")
         except Exception as e:
             print("FCM Send failed:", e)
 
