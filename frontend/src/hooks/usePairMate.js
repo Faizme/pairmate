@@ -188,6 +188,39 @@ export function usePairMate() {
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   };
 
+  const [perfectMoment, setPerfectMoment] = useState(false);
+  const bothFreeRef = useRef(false);
+  const perfectMomentTimeoutRef = useRef(null);
+  const dismissTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (!pairData) return;
+    const isUser1Free = pairData.user1_status === 'FREE';
+    const isUser2Free = pairData.user2_status === 'FREE';
+    const bothAreFree = isUser1Free && isUser2Free;
+
+    if (bothAreFree && !bothFreeRef.current) {
+        bothFreeRef.current = true;
+        perfectMomentTimeoutRef.current = setTimeout(() => {
+            setPerfectMoment(true);
+            
+            if ('Notification' in window && Notification.permission === 'granted') {
+                 new Notification('PairMate', { body: 'Perfect time to connect ❤️' });
+            }
+
+            if (dismissTimeoutRef.current) clearTimeout(dismissTimeoutRef.current);
+            dismissTimeoutRef.current = setTimeout(() => {
+                setPerfectMoment(false);
+            }, 8000);
+        }, 2000);
+    } else if (!bothAreFree && bothFreeRef.current) {
+        bothFreeRef.current = false;
+        if (perfectMomentTimeoutRef.current) clearTimeout(perfectMomentTimeoutRef.current);
+        setPerfectMoment(false);
+        if (dismissTimeoutRef.current) clearTimeout(dismissTimeoutRef.current);
+    }
+  }, [pairData]);
+
   return {
     view, setView,
     userName, setUserName,
@@ -196,6 +229,7 @@ export function usePairMate() {
     pairData,
     error,
     copied,
+    perfectMoment,
     handleCreate,
     handleJoin,
     handleLeave,

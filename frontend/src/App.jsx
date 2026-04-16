@@ -18,7 +18,8 @@ const App = () => {
     handleLeave,
     updateStatus,
     updateNotifyMode,
-    copyPairId
+    copyPairId,
+    perfectMoment
   } = usePairMate();
 
   const renderHome = () => (
@@ -109,6 +110,21 @@ const App = () => {
         <div className={`absolute w-[40vw] h-[40vw] max-w-[400px] max-h-[400px] rounded-full blur-[90px] opacity-[0.15] bottom-0 left-0 ${blob2}`}></div>
 
         <div className="max-w-3xl w-full flex flex-col gap-8 relative z-10 h-full">
+          
+          {/* Perfect Moment Banner */}
+          {perfectMoment && (
+             <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-50 transition-all duration-500 ease-in-out">
+                <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-0.5 rounded-2xl shadow-[0_0_40px_rgba(34,197,94,0.4)] animate-pulse">
+                   <div className="bg-black/90 backdrop-blur-xl px-8 py-5 rounded-xl flex flex-col items-center gap-4">
+                      <span className="text-sm font-bold tracking-widest text-white uppercase text-center">👀 You both are free right now!</span>
+                      <a href="tel:" className="w-full bg-white text-black font-bold tracking-widest py-3 px-6 rounded-lg text-xs hover:bg-green-100 transition-colors text-center shadow-lg">
+                         CALL NOW
+                      </a>
+                   </div>
+                </div>
+             </div>
+          )}
+
           {/* Header */}
           <div className="flex justify-between items-center rounded-3xl p-2">
              <div className="bg-black/40 backdrop-blur-xl border border-white/5 rounded-full px-5 py-2 flex items-center gap-3 shadow-lg">
