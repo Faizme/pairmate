@@ -46,7 +46,7 @@ export function usePairMate() {
       const myNotifyMode = newData[`user${currentUserId}_notify_mode`];
       if (myNotifyMode === 'BROWSER') {
         const pName = newData[`user${partnerId}_name`] || 'Partner';
-        const message = `Hey! ${pName} is now FREE! ✨`;
+        const message = `✨ ${pName} is now FREE!`;
         
         let blink = false;
         const blinker = setInterval(() => { document.title = blink ? message : "PairMate"; blink = !blink; }, 1000);
@@ -55,8 +55,10 @@ export function usePairMate() {
         const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
         audio.play().catch(()=>{});
 
-        if (!pushActiveRef.current) {
-           setTimeout(() => alert(message), 500);
+        if ('Notification' in window && Notification.permission === 'granted') {
+             new Notification('PairMate', { body: message });
+        } else if (!pushActiveRef.current) {
+             setTimeout(() => alert(message), 500);
         }
       }
     }
