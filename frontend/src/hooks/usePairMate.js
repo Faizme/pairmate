@@ -67,9 +67,12 @@ export function usePairMate() {
 
   useEffect(() => {
     if (view === 'session' && pairId && userId) {
-      fetch(`${API_BASE}/pairs/${pairId}/ping`, {
+      const pingFn = () => fetch(`${API_BASE}/pairs/${pairId}/ping`, {
           method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({user_id: userId})
       }).catch(e => {});
+      
+      pingFn();
+      const pingInterval = setInterval(pingFn, 45000); // Keep alive heartbeat
 
       const unsub = onSnapshot(doc(db, "pairs", pairId), (docSnap) => {
         if (docSnap.exists()) {
@@ -78,7 +81,10 @@ export function usePairMate() {
           setPairData(newData);
         }
       });
-      return () => unsub();
+      return () => {
+          unsub();
+          clearInterval(pingInterval);
+      };
     }
   }, [view, pairId, userId]);
 

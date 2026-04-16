@@ -30,7 +30,7 @@ export const PartnerCard = ({
       const diffMs = Date.now() - tsMs;
       const diffSecs = Math.floor(diffMs / 1000);
       
-      if (diffSecs < 30) {
+      if (diffSecs < 60) {
         setTimeText('Active now');
       } else if (diffSecs < 3600) {
         const mins = Math.floor(diffSecs / 60);
